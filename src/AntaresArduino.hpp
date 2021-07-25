@@ -166,7 +166,7 @@ public:
         }
     }
 
-    void send(String data)
+    void send(String &data)
     {
 
         // Allow no whitespaces or \r, \n
