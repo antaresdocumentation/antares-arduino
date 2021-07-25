@@ -41,6 +41,10 @@ void loop()
 
 Full example [here](https://github.com/antaresdocumentation/antares-arduino/blob/main/examples/Store/Store.ino).
 
+## Constructing JSON with ArduinoJSON
+
+WIP
+
 ## Installation
 
 ### Arduino IDE
