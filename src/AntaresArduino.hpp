@@ -237,7 +237,7 @@ public:
         }
     }
 
-    String initQueryStringBuilder(String &builder, const char *method)
+    void initQueryStringBuilder(String &builder, const char *method)
     {
         builder += method;
         builder += " ";
@@ -262,8 +262,6 @@ public:
         builder += "Accept: application/json\r\n";
 
         builder += "Connection: close\r\n";
-
-        return builder;
     }
 
     bool getSecureClient(WiFiClientSecure &client)
