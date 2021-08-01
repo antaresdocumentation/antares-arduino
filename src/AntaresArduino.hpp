@@ -16,6 +16,10 @@
 
 #endif
 
+#if defined(ARDUINOJSON_VERSION)
+#include <ArduinoJson.h>
+#endif
+
 const char *ANTARES_URL PROGMEM = "platform.antares.id";
 const int ANTARES_PORT PROGMEM = 8443;
 const char *GET_CA_URL PROGMEM = "http://get-ca.vmasdani.my.id";
@@ -168,19 +172,8 @@ public:
 
     void send(String &data)
     {
-
-        // Allow no whitespaces or \r, \n
-        // data.replace(" ", "");
-
-        // Replace " with \"
-        data.replace("\"", "\\\"");
-
-        String m2mData = "";
-        m2mData += "{";
-        m2mData += "\"m2m:cin\":{";
-        m2mData += "\"con\":\"" + data + "\"";
-        m2mData += "}";
-        m2mData += "}";
+        auto m2mData = String();
+        m2mDataBuilder(m2mData, data);
 
         WiFiClientSecure client;
         auto success = getSecureClient(client);
@@ -237,14 +230,75 @@ public:
         }
     }
 
+    void sendHttpClient(String &data)
+    {
+        auto m2mData = String();
+        m2mDataBuilder(m2mData, data);
+
+        WiFiClientSecure client;
+        auto success = getSecureClient(client);
+
+#ifdef ANTARES_DEBUG
+        Serial.println("Getting client finished...");
+#endif
+
+        if (success)
+        {
+            HTTPClient http;
+
+            // Build App & Device URL
+            auto appDeviceUrl = String(ANTARES_URL);
+            appDeviceUrlBuilder(appDeviceUrl);
+
+#ifdef ANTARES_DEBUG
+            Serial.println("Getting data with HTTP client to " + appDeviceUrl);
+#endif
+
+            http.begin(client, appDeviceUrl);
+
+#ifdef ANTARES_DEBUG
+            Serial.println("No errors here.");
+#endif
+        }
+        else
+        {
+#ifdef ANTARES_DEBUG
+            Serial.println("Getting secure client error.");
+#endif
+        }
+    }
+
+    void m2mDataBuilder(String &m2mData, String &data)
+    {
+        // Allow no whitespaces or \r, \n
+        // data.replace(" ", "");
+
+        // Replace " with \"
+        data.replace("\"", "\\\"");
+
+        m2mData += "{";
+        m2mData += "\"m2m:cin\":{";
+        m2mData += "\"con\":\"" + data + "\"";
+        m2mData += "}";
+        m2mData += "}";
+    }
+
+    void appDeviceUrlBuilder(String &baseUrl)
+    {
+        baseUrl += "/~/antares-cse/antares-id/";
+        baseUrl += _appName;
+        baseUrl += "/";
+        baseUrl += _deviceName;
+    }
+
     void initQueryStringBuilder(String &builder, const char *method)
     {
+
         builder += method;
         builder += " ";
-        builder += "/~/antares-cse/antares-id/";
-        builder += _appName;
-        builder += "/";
-        builder += _deviceName;
+
+        appDeviceUrlBuilder(builder);
+
         builder += " HTTP/1.1\r\n";
 
         builder += "Host: ";
