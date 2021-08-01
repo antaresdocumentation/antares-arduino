@@ -3,7 +3,7 @@
 A unified library to connect ESP8266 and ESP32 to interact with the Antares IoT platform, via these protocols:
 
 1. HTTPS
-2. Secure MQTT (WIP)
+2. MQTT (WIP)
 
 Working Example for ESP32 or ESP8266 to send string JSON data:
 
@@ -62,8 +62,8 @@ void loop()
     // Construct new JSON document
     DynamicJsonDocument doc(1024);
 
-    doc["temp"] = random(20, 35) / 1.0;
-    doc["hum"] = random(80, 100) / 1.0;
+    doc["temp"] = random(20, 35);
+    doc["hum"] = random(80, 100);
     doc["lat"] = -6.8699498;
     doc["lng"] = 107.5892773;
 
