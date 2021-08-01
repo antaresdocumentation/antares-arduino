@@ -5,6 +5,14 @@ A unified library to connect ESP8266 and ESP32 to interact with the Antares IoT 
 1. HTTPS
 2. MQTT (WIP)
 
+### Table of Contents
+
+1. [Quick Start](https://github.com/antaresdocumentation/antares-arduino#quick-start)
+2. [Constructing JSON with ArduinoJSON](https://github.com/antaresdocumentation/antares-arduino#constructing-json-with-arduinojson)
+3. [Get Latest Data And Parse JSON](https://github.com/antaresdocumentation/antares-arduino#get-latest-data-and-parse-json)
+
+### Quick Start
+
 Working Example for ESP32 or ESP8266 to send string JSON data:
 
 ```cpp
@@ -80,6 +88,58 @@ void loop()
 
 Full example [here](https://github.com/antaresdocumentation/antares-arduino/blob/main/examples/StoreJSON/StoreJSON.ino).
 
+### Get Latest Data and Parse JSON
+
+```cpp
+#include <ArduinoJson.h> // Include before AntaresArduino.h
+#include <AntaresArduino.h>
+
+...
+
+void loop()
+{
+    // Ensure WiFi is well
+    antares.checkWifi();
+
+    // Send data first
+    String json = R"(
+        {
+            "hello":"world!",
+            "counter":1,
+            "test":0.05
+        }
+    )";
+    Serial.println(json);
+    antares.send(json);
+
+    // Retrieve the sent data
+    auto latestData = String();
+
+    if (antares.getLatest(latestData))
+    {
+        Serial.println("[Latest data]");
+        Serial.println(latestData);
+
+        DynamicJsonDocument doc(1024);
+        auto err = deserializeJson(doc, latestData);
+
+        if (err)
+        {
+            Serial.println("Deserialization error: ");
+            Serial.println(err.c_str());
+        }
+        else
+        {
+            Serial.println("Hello: " + (String)doc["hello"]);
+            Serial.println("Counter: " + (String)doc["counter"]);
+            Serial.println("Test: " + (String)doc["test"]);
+        }
+    }
+
+    delay(5000);
+}
+
+```
 
 ## Installation
 
