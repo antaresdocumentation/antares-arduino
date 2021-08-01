@@ -309,7 +309,7 @@ public:
 
         return false;
 #else
-        Serial.println(F("[getLatest error] ArduinoJSON not installed or not included. Please install and include ArduinoJSON first."));
+        Serial.println(F("[getLatest error] ArduinoJSON v6 not installed or not included. Please install and include ArduinoJSON v6 first."));
 #endif
 
         return false;
