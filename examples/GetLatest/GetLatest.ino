@@ -1,7 +1,8 @@
 #define ANTARES_DEBUG
 
 #include <Arduino.h>
-#include <AntaresArduino.h>
+#include <AntaresArduino.h> // Include before AntaresArduino.h
+#include <ArduinoJson.h>
 
 #define SSID "my-ssid"
 #define PASSWORD "my-password"
@@ -27,15 +28,13 @@ void loop()
     // Ensure WiFi is well
     antares.checkWifi();
 
-    String json = R"(
-        {
-            "hello":"world!",
-            "counter":1,
-            "test":0.05
-        }
-    )";
-    Serial.println(json);
-    antares.send(json);
+    auto latestData = String();
+
+    if (antares.getLatest(latestData))
+    {
+        Serial.println("[Latest data]");
+        Serial.println(latestData);
+    }
 
     delay(5000);
 }

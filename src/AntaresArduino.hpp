@@ -20,9 +20,8 @@
 #include <ArduinoJson.h>
 #endif
 
-const char *ANTARES_URL PROGMEM = "platform.antares.id";
-const int ANTARES_PORT PROGMEM = 8443;
-const char *GET_CA_URL PROGMEM = "http://get-ca.vmasdani.my.id";
+#include "AntaresStringBuilder.hpp"
+#include "constants.h"
 
 class AntaresArduino
 {
@@ -63,13 +62,7 @@ public:
         url += String(ANTARES_PORT);
 
         if (
-#if defined(ESP8266)
-            http.begin(client, url)
-
-#elif defined(ESP32)
-            http.begin(url)
-#endif
-        )
+            http.begin(client, url))
         {
             auto statusCode = http.GET();
 
@@ -77,7 +70,7 @@ public:
             {
                 auto cert = http.getString();
 
-                Serial.println("[CERT]");
+                Serial.println(F("[CERT]"));
                 Serial.println(cert);
 
                 _cert = cert;
@@ -86,13 +79,17 @@ public:
             }
             else
             {
-                Serial.println("Error getting " + url + " " + String(statusCode));
+                Serial.print(F("Error getting "));
+                Serial.print(url);
+                Serial.print(" ");
+                Serial.println(statusCode);
+
                 return false;
             }
         }
         else
         {
-            Serial.println("GET request error");
+            Serial.println(F("GET request error"));
             return false;
         }
     }
@@ -103,7 +100,8 @@ public:
         // Attempt to connect to WiFi 5 times.
         for (auto i = 0; i < 5; ++i)
         {
-            Serial.println("Connecting... attempt " + (String)(i + 1));
+            Serial.print(F("Connecting... attempt "));
+            Serial.println(i + 1);
 
             for (auto j = 0; j < 5; ++j)
             {
@@ -125,13 +123,14 @@ public:
         // If unable, repeat.
         if (WiFi.status() != WL_CONNECTED)
         {
-            Serial.println("Failed connecting to " + (String)_ssid + "!");
+            Serial.print(F("Failed connecting to "));
+            Serial.println(_ssid);
             checkWifi();
         }
         else
         {
-            Serial.println("Connected to " + (String)_ssid + "!");
-
+            Serial.print(F("Connected to "));
+            Serial.println(_ssid);
             // Try getting cert
             auto success = getCaCertificate();
 
@@ -147,7 +146,7 @@ public:
                 // Set time via NTP, as required for x.509 validation
                 configTime(3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
 
-                Serial.print("Waiting for NTP time sync: ");
+                Serial.print(F("Waiting for NTP time sync: "));
                 time_t now = time(nullptr);
                 while (now < 8 * 3600 * 2)
                 {
@@ -155,91 +154,33 @@ public:
                     Serial.print(".");
                     now = time(nullptr);
                 }
-                Serial.println("");
+                Serial.println(F(""));
                 struct tm timeinfo;
                 gmtime_r(&now, &timeinfo);
-                Serial.print("Current time: ");
+                Serial.print(F("Current time: "));
                 Serial.print(asctime(&timeinfo));
 #endif
             }
             else
             {
-                Serial.println("Getting certificate failed.");
+                Serial.println(F("Getting certificate failed."));
                 checkWifi();
             }
         }
     }
 
-    void send(String &data)
+    bool send(String &data)
     {
-        auto m2mData = String();
-        m2mDataBuilder(m2mData, data);
-
         WiFiClientSecure client;
         auto success = getSecureClient(client);
 
-#ifdef ANTARES_DEBUG
-        Serial.println("Getting client finished...");
+#if defined(ESP8266)
+        // ESP8266 setInsecure temporarily. Will fix later
+        client.setInsecure();
 #endif
 
-        if (success)
-        {
 #ifdef ANTARES_DEBUG
-            Serial.println("Sending data...");
-            Serial.println(data);
-#endif
-
-            auto builder = String("");
-            initQueryStringBuilder(builder, "POST");
-
-            builder += "Content-Length: ";
-            builder += m2mData.length();
-            builder += "\r\n";
-
-            // Add space for data;
-            builder += "\r\n";
-
-            // Build data
-            builder += m2mData;
-
-#ifdef ANTARES_DEBUG
-            Serial.println(builder);
-#endif
-
-            Serial.println("Sending to Antares!");
-            client.print(builder);
-
-            while (client.connected())
-            {
-                String line = client.readStringUntil('\n');
-                if (line == "\r")
-                {
-                    Serial.println("Store success!");
-                    break;
-                }
-            }
-
-            String line = client.readStringUntil('\n');
-            Serial.println(line);
-        }
-        else
-        {
-#ifdef ANTARES_DEBUG
-            Serial.println("Getting secure client error.");
-#endif
-        }
-    }
-
-    void sendHttpClient(String &data)
-    {
-        auto m2mData = String();
-        m2mDataBuilder(m2mData, data);
-
-        WiFiClientSecure client;
-        auto success = getSecureClient(client);
-
-#ifdef ANTARES_DEBUG
-        Serial.println("Getting client finished...");
+        Serial.println(F("Getting client finished..."));
 #endif
 
         if (success)
@@ -247,75 +188,131 @@ public:
             HTTPClient http;
 
             // Build App & Device URL
-            auto appDeviceUrl = String(ANTARES_URL);
-            appDeviceUrlBuilder(appDeviceUrl);
+            auto appDeviceUrl = "https://" + String(ANTARES_URL) + ":" + ANTARES_PORT;
+            AntaresStringBuilder::appDeviceUrlBuilder(appDeviceUrl, _appName, _deviceName);
 
 #ifdef ANTARES_DEBUG
-            Serial.println("Getting data with HTTP client to " + appDeviceUrl);
+            Serial.print(F("Sending data with HTTPS client to "));
+            Serial.println(appDeviceUrl);
 #endif
 
             http.begin(client, appDeviceUrl);
+            http.addHeader("X-M2M-Origin", _key);
+            http.addHeader("Content-Type", "application/json;ty=4");
+            http.addHeader("Accept", "application/json");
+            http.addHeader("Connection", "close");
+
+            auto m2mData = String();
+            AntaresStringBuilder::m2mDataBuilder(m2mData, data);
 
 #ifdef ANTARES_DEBUG
-            Serial.println("No errors here.");
+            Serial.println(F("m2m data:"));
+            Serial.println(m2mData);
 #endif
+
+            auto httpCode = http.POST(m2mData);
+
+            Serial.print(F("Response code: "));
+            Serial.println(httpCode);
+
+            if (httpCode == 201)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
         else
         {
 #ifdef ANTARES_DEBUG
-            Serial.println("Getting secure client error.");
+            Serial.println(F("Getting secure client error."));
 #endif
+            return false;
         }
+
+        return false;
     }
 
-    void m2mDataBuilder(String &m2mData, String &data)
+    bool getLatest(String &responseString)
     {
-        // Allow no whitespaces or \r, \n
-        // data.replace(" ", "");
+#if defined(ARDUINOJSON_VERSION)
+        WiFiClientSecure client;
+        auto success = getSecureClient(client);
 
-        // Replace " with \"
-        data.replace("\"", "\\\"");
+#if defined(ESP8266)
+        // ESP8266 setInsecure temporarily. Will fix later
+        client.setInsecure();
+#endif
 
-        m2mData += "{";
-        m2mData += "\"m2m:cin\":{";
-        m2mData += "\"con\":\"" + data + "\"";
-        m2mData += "}";
-        m2mData += "}";
-    }
+#ifdef ANTARES_DEBUG
+        Serial.println(F("Getting client finished..."));
+#endif
 
-    void appDeviceUrlBuilder(String &baseUrl)
-    {
-        baseUrl += "/~/antares-cse/antares-id/";
-        baseUrl += _appName;
-        baseUrl += "/";
-        baseUrl += _deviceName;
-    }
+        if (success)
+        {
+            HTTPClient http;
 
-    void initQueryStringBuilder(String &builder, const char *method)
-    {
+            // Build App & Device URL
+            auto appDeviceUrl = "https://" + String(ANTARES_URL) + ":" + ANTARES_PORT;
+            AntaresStringBuilder::appDeviceUrlBuilder(appDeviceUrl, _appName, _deviceName);
+            appDeviceUrl += "/la";
 
-        builder += method;
-        builder += " ";
+#ifdef ANTARES_DEBUG
+            Serial.print(F("Getting data with HTTP client to "));
+            Serial.println(appDeviceUrl);
+#endif
 
-        appDeviceUrlBuilder(builder);
+            http.begin(client, appDeviceUrl);
+            http.addHeader("X-M2M-Origin", _key);
+            http.addHeader("Content-Type", "application/json;ty=4");
+            http.addHeader("Accept", "application/json");
+            http.addHeader("Connection", "close");
 
-        builder += " HTTP/1.1\r\n";
+            auto httpCode = http.GET();
 
-        builder += "Host: ";
-        builder += ANTARES_URL;
-        builder += ":";
-        builder += ANTARES_PORT;
-        builder += "\r\n";
+            Serial.print(F("Response code: "));
+            Serial.println(httpCode);
 
-        builder += "X-M2M-Origin: ";
-        builder += _key;
-        builder += "\r\n";
+            if (httpCode == 200)
+            {
+                // 16kb max
+                DynamicJsonDocument doc(16384);
 
-        builder += "Content-Type: application/json;ty=4\r\n";
+                auto err = deserializeJson(doc, http.getString());
 
-        builder += "Accept: application/json\r\n";
+                if (err)
+                {
+                    Serial.println(F("Deserialization error"));
+                    return false;
+                }
+                else
+                {
+                    responseString = doc["m2m:cin"]["con"].as<String>();
+                    return true;
+                }
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+#ifdef ANTARES_DEBUG
+            Serial.println(F("Getting secure client error."));
+#endif
 
-        builder += "Connection: close\r\n";
+            return false;
+        }
+
+        return false;
+#else
+        Serial.println(F("[getLatest error] ArduinoJSON not installed or not included. Please install and include ArduinoJSON first."));
+#endif
+
+        return false;
     }
 
     bool getSecureClient(WiFiClientSecure &client)
@@ -334,7 +331,12 @@ public:
         if (!client.connect(ANTARES_URL, ANTARES_PORT))
         {
 #ifdef ANTARES_DEBUG
-            Serial.println("Connecting to " + String(ANTARES_URL) + ":" + String(ANTARES_PORT) + " failed! Retrying...");
+            Serial.print(F("Connecting to "));
+            Serial.print(ANTARES_URL);
+            Serial.print(F(":"));
+            Serial.print(ANTARES_PORT);
+            Serial.println(F(" failed! Retrying..."));
+
 #endif
 
             return false;
@@ -342,7 +344,11 @@ public:
         else
         {
 #ifdef ANTARES_DEBUG
-            Serial.println("Connecting to " + String(ANTARES_URL) + ":" + String(ANTARES_PORT) + " successful!");
+            Serial.print(F("Connecting to "));
+            Serial.print(ANTARES_URL);
+            Serial.print(F(":"));
+            Serial.print(ANTARES_PORT);
+            Serial.println(F(" successful!"));
 #endif
 
             return true;
