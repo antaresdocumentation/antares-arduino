@@ -19,12 +19,8 @@ AntaresArduino antares(
 void setup()
 {
     Serial.begin(115200);
-    antares.initWifi();
+    antares.initWifi(true);
     antares.initMqtt();
-}
-
-void loop()
-{
     antares.mqttCallback([](String topic, String payload)
                          {
                              Serial.println(F("Topic:"));
@@ -32,6 +28,9 @@ void loop()
                              Serial.println(F("Payload:"));
                              Serial.println(payload);
                          });
+}
 
-    delay(5000);
+void loop()
+{
+    antares.loop();
 }

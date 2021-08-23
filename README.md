@@ -10,6 +10,7 @@ A unified library to connect ESP8266 and ESP32 to interact with the Antares IoT 
 1. [Quick Start](https://github.com/antaresdocumentation/antares-arduino#quick-start)
 2. [Constructing JSON with ArduinoJSON](https://github.com/antaresdocumentation/antares-arduino#constructing-json-with-arduinojson)
 3. [Get Latest Data And Parse JSON](https://github.com/antaresdocumentation/antares-arduino#get-latest-data-and-parse-json)
+4. [Subscribe MQTT](https://github.com/antaresdocumentation/antares-arduino#subscribe-mqtt)
 
 ### Quick Start
 
@@ -167,12 +168,8 @@ AntaresArduino antares(
 void setup()
 {
     Serial.begin(115200);
-    antares.initWifi();
+    antares.initWifi(true);
     antares.initMqtt();
-}
-
-void loop()
-{
     antares.mqttCallback([](String topic, String payload)
                          {
                              Serial.println(F("Topic:"));
@@ -180,8 +177,11 @@ void loop()
                              Serial.println(F("Payload:"));
                              Serial.println(payload);
                          });
+}
 
-    delay(5000);
+void loop()
+{
+    antares.loop();
 }
 ```
 Full example [here](https://github.com/antaresdocumentation/antares-arduino/blob/main/examples/MQTTSubscribe/MQTTSubscribe.ino).
