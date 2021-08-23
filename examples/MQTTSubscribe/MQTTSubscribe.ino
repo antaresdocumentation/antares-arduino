@@ -23,9 +23,9 @@ void setup()
     antares.initMqtt();
     antares.mqttCallback([](String topic, String payload)
                          {
-                             Serial.println(F("Topic:"));
+                             Serial.print(F("Topic:"));
                              Serial.println(topic);
-                             Serial.println(F("Payload:"));
+                             Serial.print(F("Payload:"));
                              Serial.println(payload);
                          });
 }
