@@ -60,9 +60,6 @@ Creating JSON data types is easy with ArduinoJSON. Just follow this example:
 #include <ArduinoJson.h> // Include before AntaresArduino.h
 #include <AntaresArduino.h>
 
-
-...
-
 void loop()
 {
     // Ensure WiFi is well
@@ -94,8 +91,6 @@ Full example [here](https://github.com/antaresdocumentation/antares-arduino/blob
 ```cpp
 #include <ArduinoJson.h> // Include before AntaresArduino.h
 #include <AntaresArduino.h>
-
-...
 
 void loop()
 {
