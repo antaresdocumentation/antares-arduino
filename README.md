@@ -3,7 +3,7 @@
 A unified library to connect ESP8266 and ESP32 to interact with the Antares IoT platform, via these protocols:
 
 1. HTTPS
-2. MQTT (WIP)
+2. MQTT
 
 ### Table of Contents
 
@@ -143,6 +143,48 @@ void loop()
 
 Full example [here](https://github.com/antaresdocumentation/antares-arduino/blob/main/examples/StoreAndGetJSON/StoreAndGetJSON.ino).
 
+### Subscribe MQTT
+
+```cpp
+#define ANTARES_DEBUG
+
+#include <Arduino.h>
+#include <AntaresArduino.h>
+
+#define SSID "my-ssid"
+#define PASSWORD "my-password"
+#define APP_NAME "my-app-name"
+#define DEVICE_NAME "my-key-name"
+#define KEY "my-credentials"
+
+AntaresArduino antares(
+    SSID,
+    PASSWORD,
+    APP_NAME,
+    DEVICE_NAME,
+    KEY);
+
+void setup()
+{
+    Serial.begin(115200);
+    antares.initWifi();
+    antares.initMqtt();
+}
+
+void loop()
+{
+    antares.mqttCallback([](String topic, String payload)
+                         {
+                             Serial.println(F("Topic:"));
+                             Serial.println(topic);
+                             Serial.println(F("Payload:"));
+                             Serial.println(payload);
+                         });
+
+    delay(5000);
+}
+```
+Full example [here](https://github.com/antaresdocumentation/antares-arduino/blob/main/examples/MQTTSubscribe/MQTTSubscribe.ino).
 
 ## Installation
 

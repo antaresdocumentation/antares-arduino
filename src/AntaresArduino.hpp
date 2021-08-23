@@ -20,6 +20,10 @@
 #include <ArduinoJson.h>
 #endif
 
+#if defined(PubSubClient_h)
+#include <PubSubClient.h>
+#endif
+
 #include "AntaresStringBuilder.hpp"
 #include "constants.h"
 
@@ -32,6 +36,11 @@ private:
     const char *_deviceName;
     const char *_key;
     String _cert = "";
+
+#if defined(PubSubClient_h)
+    WiFiClient _mqttWifiClient;
+    PubSubClient _mqttClient;
+#endif
 
 public:
     AntaresArduino(const char *ssid, const char *password, const char *appName, const char *deviceName, const char *key)
@@ -46,6 +55,14 @@ public:
     void initWifi()
     {
         WiFi.begin(_ssid, _password);
+    }
+
+    void initWifi(bool check)
+    {
+        WiFi.begin(_ssid, _password);
+
+        if (check)
+            this->checkWifi();
     }
 
     bool getCaCertificate()
@@ -355,5 +372,79 @@ public:
         }
 
         return false;
+    }
+
+    void initMqtt()
+    {
+#if defined(PubSubClient_h)
+        _mqttClient.setClient(this->_mqttWifiClient);
+        _mqttClient.setServer(ANTARES_MQTT_URL, ANTARES_MQTT_PORT_INSECURE);
+#else
+        Serial.println(F("[Antares::initMqtt] PubSubClient not installed. Please install first."));
+#endif
+    }
+
+    void loop()
+    {
+
+#if defined(PubSubClient_h)
+        if (!_mqttClient.connected())
+        {
+            Serial.print(F("Attempting MQTT connection to "));
+            Serial.println(ANTARES_MQTT_URL);
+            // Create a random client ID
+            String clientId = String(_key) + "-";
+            clientId += String(random(0xffff), HEX);
+
+            Serial.println(F("With client ID:"));
+            Serial.println(clientId);
+
+            delay(5000);
+
+            // Attempt to connect
+            if (_mqttClient.connect(clientId.c_str()))
+            {
+                Serial.println(F("connected!"));
+
+                String topicBuilder;
+                topicBuilder += "/oneM2M/req/";
+                topicBuilder += _key;
+                topicBuilder += "/antares-cse/json";
+
+                _mqttClient.subscribe(topicBuilder.c_str());
+            }
+            else
+            {
+                Serial.print(F("failed, rc="));
+                Serial.print(_mqttClient.state());
+                Serial.println(F(" try again in 5 seconds"));
+                // Wait 5 seconds before retrying
+                delay(5000);
+            }
+        }
+
+        _mqttClient.loop();
+#else
+        Serial.println(F("[Antares::loop] PubSubClient not installed. Please install first."));
+#endif
+    }
+
+    void mqttCallback(void (*callback)(String, String))
+    {
+#if defined(PubSubClient_h)
+        _mqttClient.setCallback([callback](char *topic, byte *payload, unsigned int length)
+                                {
+                                    String payloadStr;
+
+                                    for (auto i = 0; i < length; ++i)
+                                    {
+                                        payloadStr += (char)payload[i];
+                                    }
+
+                                    callback(String(topic), payloadStr);
+                                });
+#else
+        Serial.println(F("[Antares::subscribe] PubSubClient not installed. Please install first."));
+#endif
     }
 };
